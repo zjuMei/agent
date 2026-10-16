@@ -3,6 +3,7 @@
 import argparse
 import os
 from pathlib import Path
+from time import perf_counter
 
 try:
     import readline  # 启用 input() 的行编辑和重绘，避免中文退格后显示残留。
@@ -26,6 +27,8 @@ COMMANDS = "/mode hybrid|react|plan|reflection 切换模式；/clear 清空对�
 def run_turn(llm, question: str, mode: str, chat_history: list) -> bool:
     """一条用户消息触发一次范式流程，只留下问答和工具证据。"""
     print(f"\n运行模式: {mode}\n用户输入: {question}\n" + "=" * 40, flush=True)
+    llm.reset_stats()
+    start = perf_counter()
     success = True
     try:
         answer, evidence = RUNNERS[mode](llm, question, chat_history=chat_history)
@@ -35,6 +38,14 @@ def run_turn(llm, question: str, mode: str, chat_history: list) -> bool:
     chat_history.append({"question": question, "answer": answer, "evidence": evidence})
     del chat_history[:-MAX_TURNS]
     print(f"\n助手：{answer}", flush=True)
+    print(
+        f"\n本轮统计：模型调用 {llm.calls} 次，模型累计 {llm.model_seconds:.1f} 秒，"
+        f"总耗时 {perf_counter() - start:.1f} 秒；已报告 Token："
+        f"输入 {llm.input_tokens}，输出 {llm.output_tokens}。",
+        flush=True,
+    )
+    if llm.missing_usage:
+        print(f"其中 {llm.missing_usage} 次调用缺少完整用量，Token 合计不完整。", flush=True)
     return success
 
 

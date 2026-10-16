@@ -2,7 +2,7 @@
 
 import json
 
-from common import make_messages, parse_json, parse_response
+from common import make_messages, parse_json
 from react import run_react
 from tools import ActionError
 
@@ -10,6 +10,7 @@ from tools import ActionError
 REVIEW_PROMPT = """当前是反思阶段，你是评审员，只评审答案，不执行工具或保存偏好。
 对照原始问题及工具证据检查：本次限制、长期偏好、天气日期及适配性、来源支持、
 地点重复、未经核实的断言。不要为了挑错而编造问题；反馈不是新的事实证据。
+检查是否将“偏好”强化为“仅限”，是否把阴天直接判为不适合室外，或给烟霾擅自添加程度。
 只输出 JSON 对象，例如：
 {"needs_revision": true, "feedback": "第二个景点为半室外，不符合仅限室内，应删除。"}
 没有实质问题时只需返回 {"needs_revision": false}；需要修订时必须给出非空 feedback。
@@ -19,7 +20,7 @@ REVIEW_PROMPT = """当前是反思阶段，你是评审员，只评审答案，�
 REFINE_PROMPT = """当前是修订阶段，根据评审反馈修改最新初稿。
 只使用原始问题、已有偏好与工具证据；反馈中的新事实未经工具支持时不能直接采信。
 证据不足时删除不可靠断言并说明缺失，不得编造补充，不重新查询或保存偏好。
-只返回 Action: Finish[修订后的完整中文答案]。
+直接返回修订后的完整中文答案。
 """
 
 
@@ -50,10 +51,7 @@ def reflect_answer(llm, question: str, answer: str, evidence: list, chat_history
             if not isinstance(review.get("feedback"), str) or not review["feedback"].strip():
                 raise ActionError("要求修订时必须提供非空评审反馈。")
             feedback = {"role": "user", "content": "评审反馈：" + review["feedback"]}
-            text = llm.ask(base + [{"role": "system", "content": REFINE_PROMPT}, data, feedback], f"Reflection 修订 {iteration}")
-            kind, refined = parse_response(text)
-            if kind != "finish":
-                raise ActionError("修订阶段必须 Finish，未执行任何工具。")
+            refined = llm.ask(base + [{"role": "system", "content": REFINE_PROMPT}, data, feedback], f"Reflection 修订 {iteration}")
             revisions.append({"初稿": answer, "反馈": review["feedback"], "修订稿": refined})
             answer = refined
         except (RuntimeError, ActionError) as error:
