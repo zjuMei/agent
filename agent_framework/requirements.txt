@@ -1,0 +1,3 @@
+openai>=1.50,<4
+python-dotenv>=1,<2
+pydantic>=2.7,<3

@@ -1,4 +1,4 @@
-# 旅行 Agent：原生 Python 与 LangGraph 对照学习
+# Agent 学习：原生 Python、LangGraph 与自建框架
 
 参考 [Hello-Agents 第四章](https://hello-agents.datawhale.cc/#/./chapter4/第四章%20智能体经典范式构建)。
 两版均提供 ReAct、Plan-and-Solve、Reflection 和默认的 Hybrid 组合模式。
@@ -7,6 +7,11 @@
 | --- | --- | --- |
 | [native](native/README.md) | 普通函数、循环和条件判断 | 当前原生实现，便于理解 Agent 的基本机制 |
 | [langgraph_app](langgraph_app/README.md) | StateGraph 节点、条件边和子图 | 同一组功能，学习用 LangGraph 组织流程 |
+| [agent_framework](agent_framework/README.md) | 自建模型、消息、工具与 Agent 接口 | 第七章独立实现，学习从业务代码提炼可复用框架 |
+
+第七章自建框架的安装、运行和扩展方法见 [agent_framework/README.md](agent_framework/README.md)。
+快速体验：`python -m agent_framework.examples.offline_demo`；真实模型运行：`python -m agent_framework --mode react`。
+以下说明针对原生版与 LangGraph 版旅行助手。
 
 ## 安装与配置
 
