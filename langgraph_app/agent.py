@@ -1,4 +1,4 @@
-"""学习入口：同一个旅行问题，选择不同的 Agent 工作流程。"""
+"""LangGraph 学习入口：同一个旅行问题，选择不同的图执行流程。"""
 
 import argparse
 import os
@@ -50,11 +50,11 @@ def run_turn(llm, question: str, mode: str, chat_history: list) -> bool:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="学习 ReAct、Plan-and-Solve、Reflection 及组合模式")
+    parser = argparse.ArgumentParser(description="LangGraph：学习 ReAct、Plan-and-Solve、Reflection 及组合模式")
     parser.add_argument("query", nargs="?", help="省略时进入连续对话；提供时只处理这一个问题")
     parser.add_argument("--mode", choices=tuple(RUNNERS), default="hybrid", help="默认 hybrid；plan 为 Plan-and-Solve")
     args = parser.parse_args()
-    load_dotenv(Path(__file__).with_name(".env"))
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
     for name in ("LLM_API_KEY", "LLM_MODEL"):
         if not os.getenv(name):
             raise SystemExit(f"缺少配置 {name}，请参照 .env.example 配置 .env。")
@@ -70,7 +70,7 @@ def main():
             raise SystemExit(1)
         return
 
-    print(f"连续对话已启动，当前模式：{mode}。\n{COMMANDS}", flush=True)
+    print(f"LangGraph 连续对话已启动，当前模式：{mode}。\n{COMMANDS}", flush=True)
     try:
         while True:
             question = input("\n你：").strip()

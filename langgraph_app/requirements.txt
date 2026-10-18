@@ -1,0 +1,5 @@
+openai
+requests
+tavily-python
+python-dotenv
+langgraph==1.2.16
