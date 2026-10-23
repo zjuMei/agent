@@ -32,6 +32,7 @@ class ReActAgent(Agent):
             result = self.tools.execute(call.name, call.arguments)
             self.trace.append({"stage": "工具", "name": call.name, "arguments": call.arguments,
                                "seconds": round(perf_counter() - start, 3), **result})
+            self._emit({"type": "tool_result", "stage": stage, "name": call.name, **result})
             messages.append(Message("tool", json.dumps(result, ensure_ascii=False), tool_call_id=call.id))
         raise StepLimitError(f"达到 {self.max_steps} 次模型调用上限，尚未得到最终回答")
 

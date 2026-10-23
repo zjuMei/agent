@@ -13,10 +13,14 @@ class ScriptedLLM:
         self.replies = iter(replies)
         self.requests = []
 
-    def chat(self, messages, *, tools=None):
+    def chat(self, messages, *, tools=None, stream=True, on_token=None):
         self.requests.append(([m.to_dict() for m in messages], tools))
         reply = next(self.replies)
-        return Message("assistant", reply) if isinstance(reply, str) else reply
+        message = Message("assistant", reply) if isinstance(reply, str) else reply
+        if stream and on_token is not None:
+            for text in message.content:
+                on_token(text)
+        return message
 
 
 def calculate_call(expression="2 + 3 * 4"):

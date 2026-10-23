@@ -9,14 +9,20 @@ from .core.config import Config
 from .core.exceptions import AgentError, ModelError, OutputError, StepLimitError
 from .core.llm import ChatModel, LLM
 from .core.message import Message, ToolCall
+from .core.storage import SQLiteStore
+from .memory import MemoryStore, SessionStore
+from .retrieval import DocumentIndex
 from .tools.base import FunctionTool, Tool
 from .tools.builtin import CalculatorTool, create_registry
 from .tools.chain import AsyncToolExecutor, ChainStep, ToolChain
+from .tools.knowledge import register_knowledge_tools
 from .tools.registry import ToolRegistry
 
 __all__ = [
     "Agent", "AgentError", "AsyncToolExecutor", "CalculatorTool", "ChainStep", "ChatModel",
-    "Config", "FunctionTool", "LLM", "Message", "ModelError", "OutputError", "PlanAndSolveAgent",
+    "Config", "DocumentIndex", "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError",
+    "OutputError", "PlanAndSolveAgent",
     "ReActAgent", "ReflectionAgent", "SimpleAgent", "StepLimitError", "Tool", "ToolCall",
-    "ToolChain", "ToolRegistry", "create_registry",
+    "SessionStore", "SQLiteStore", "ToolChain", "ToolRegistry", "create_registry",
+    "register_knowledge_tools",
 ]

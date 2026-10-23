@@ -7,7 +7,7 @@
 | --- | --- | --- |
 | [native](native/README.md) | 普通函数、循环和条件判断 | 当前原生实现，便于理解 Agent 的基本机制 |
 | [langgraph_app](langgraph_app/README.md) | StateGraph 节点、条件边和子图 | 同一组功能，学习用 LangGraph 组织流程 |
-| [agent_framework](agent_framework/README.md) | 自建模型、消息、工具与 Agent 接口 | 第七章独立实现，学习从业务代码提炼可复用框架 |
+| [agent_framework](agent_framework/README.md) | 自建模型、消息、工具与 Agent 接口 | 第七章框架，以及第八章的会话持久化、长期记忆和基础 RAG |
 
 第七章自建框架的安装、运行和扩展方法见 [agent_framework/README.md](agent_framework/README.md)。
 快速体验：`python -m agent_framework.examples.offline_demo`；真实模型运行：`python -m agent_framework --mode react`。

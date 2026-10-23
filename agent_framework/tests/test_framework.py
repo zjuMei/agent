@@ -185,16 +185,17 @@ class AdapterTests(unittest.TestCase):
     def test_real_sdk_serialization_and_tool_call_parsing(self):
         llm = self.adapter(self.response({"role": "assistant", "content": None,
             "tool_calls": [calculate_call().tool_calls[0].to_dict()]}, "tool_calls"))
-        reply = llm.chat([Message("user", "算一下")], tools=create_registry().schemas())
+        reply = llm.chat([Message("user", "算一下")], tools=create_registry().schemas(), stream=False)
         self.assertEqual(reply.tool_calls[0].name, "calculator")
         self.assertFalse(self.requests[0]["parallel_tool_calls"])
         self.assertNotIn("enable_thinking", self.requests[0])
+        self.assertFalse(self.requests[0]["stream"])
         self.assertEqual(llm.calls, 1)
 
     def test_incomplete_reply_never_reaches_execution(self):
         llm = self.adapter(self.response({"role": "assistant", "content": "半句话"}, "length"))
         with self.assertRaises(OutputError):
-            SimpleAgent(llm).run("问题")
+            SimpleAgent(llm).run("问题", stream=False)
 
     def test_api_error_is_sanitized(self):
         llm = self.adapter({"error": {"message": "sensitive-value", "type": "invalid_request_error"}}, 401)
