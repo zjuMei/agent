@@ -6,7 +6,8 @@ from .agents.reflection import ReflectionAgent
 from .agents.simple import SimpleAgent
 from .core.agent import Agent
 from .core.config import Config
-from .core.exceptions import AgentError, ModelError, OutputError, StepLimitError
+from .core.context import ContextBuilder, ContextConfig
+from .core.exceptions import AgentError, ContextLimitError, ModelError, OutputError, StepLimitError
 from .core.llm import ChatModel, LLM
 from .core.message import Message, ToolCall
 from .core.storage import SQLiteStore
@@ -20,7 +21,8 @@ from .tools.registry import ToolRegistry
 
 __all__ = [
     "Agent", "AgentError", "AsyncToolExecutor", "CalculatorTool", "ChainStep", "ChatModel",
-    "Config", "DocumentIndex", "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError",
+    "Config", "ContextBuilder", "ContextConfig", "ContextLimitError", "DocumentIndex",
+    "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError",
     "OutputError", "PlanAndSolveAgent",
     "ReActAgent", "ReflectionAgent", "SimpleAgent", "StepLimitError", "Tool", "ToolCall",
     "SessionStore", "SQLiteStore", "ToolChain", "ToolRegistry", "create_registry",

@@ -15,3 +15,9 @@ class OutputError(AgentError):
 
 class StepLimitError(AgentError):
     pass
+
+
+class ContextLimitError(AgentError):
+    def __init__(self, message, stats):
+        super().__init__(message)
+        self.stats = stats

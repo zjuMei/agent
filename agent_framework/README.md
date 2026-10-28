@@ -6,6 +6,7 @@
 与前两版旅行助手相比，这里的核心变化是：**流程不再绑定旅行业务，业务能力通过注册工具加入。**
 默认示例使用计算器，方便专注理解框架；可以注册自己的天气、搜索或其他工具。
 当前还提供第八章的轻量扩展：SQLite 会话持久化、显式长期记忆和本地文档检索。
+第九章第一轮增加统一上下文预算、结构化工具结果预览，以及每次模型调用的输入统计。
 基础扩展只使用 Python 标准库，不需要额外数据库服务或 Embedding 密钥。
 
 ## 先运行
@@ -65,7 +66,7 @@ python -m agent_framework --mode plan --trace "周一卖15个苹果，周二两�
 默认开启模型流式请求，终端按 `[回答]`、`[草稿]`、`[评审]`、`[规划]`、`[步骤 N]`、`[汇总]` 等阶段实时显示文本。
 规划和评审的 JSON 也会显示，方便观察完整流程；Reflection 最后会明确给出最终答案。
 工具名在模型调用完整接收后显示，工具结果在实际执行后显示。
-`--trace` 在本轮结束后额外显示完整模型回复、调用参数、工具结果、错误及耗时。
+`--trace` 在本轮结束后额外显示完整模型回复、调用参数、工具结果、错误、耗时及每次调用的上下文统计。
 这里展示的是可观察的调用记录，不要求模型输出内部思维过程。
 
 ## 流式接口与完整返回值
@@ -120,6 +121,22 @@ CLI 的 ReAct/Plan 默认增加只读工具 `search_memory` 和 `search_document
 文档检索支持 UTF-8 的 Markdown/TXT，返回片段、行号及来源；采用英文词和中文双字匹配，无需 Embedding。
 完整接口、隔离规则、示例及阅读顺序见 [基础扩展说明](EXTENSIONS.md)。
 
+## 第九章第一轮：上下文预算
+
+四种 Agent 在每次模型调用前都经过 `ContextBuilder`，默认输入预算为 24000 字符，
+自动记忆正文预算为 2000 字符，每条工具结果正文最多发送 3000 字符。
+统计包含消息结构、调用参数及工具 Schema；字符预算与输出 token 限制分别配置。
+只裁剪发送副本，原始历史和 SQLite 记录继续保留。系统提示与当前任务不截断，工具请求/结果保持对应。
+
+```bash
+python -m agent_framework.examples.context_demo
+python -m agent_framework --trace --context-chars 6000 --tool-result-chars 1000 "请调用计算器计算 2 + 3"
+```
+
+`--trace` 中每条模型调用记录的 `context` 展示保留的轮次、选择的记忆 ID、工具结果缩短情况及原因。
+必要输入无法放入预算时抛出 `ContextLimitError`，不会发送该次模型请求。
+配置、裁剪规则、Python 接口与验证方法见 [上下文预算说明](CONTEXT.md)。
+
 ## 目录与阅读顺序
 
 ```text
@@ -133,6 +150,7 @@ agent_framework/
 │   │   ├── config.py         # 环境变量与参数校验
 │   │   ├── llm.py            # ChatModel 接口 / OpenAI SDK 适配器
 │   │   ├── agent.py          # 统一 run、会话与执行记录
+│   │   ├── context.py        # 输入预算、完整轮次选择、工具结果预览和统计
 │   │   ├── storage.py        # SQLite 连接、表结构和事务
 │   │   ├── retrieval.py      # 基础文本匹配与长度限制
 │   │   └── exceptions.py     # 模型、输出和步数异常
@@ -151,6 +169,7 @@ agent_framework/
 │       └── chain.py          # ToolChain / AsyncToolExecutor
 ├── examples/offline_demo.py  # 可替换的预设模型，展示四种流程
 ├── examples/knowledge_demo.py # 离线验证记忆、检索和恢复
+├── examples/context_demo.py # 离线观察上下文裁剪和原文保留
 ├── knowledge/framework.md    # 可导入的示例资料
 ├── data/                    # 运行时数据库，Git 忽略
 └── tests/                   # 离线测试，包括 SDK 的模拟 HTTP 和 SSE 测试
@@ -224,11 +243,11 @@ print(chain.run(input=3)["answer"])  # 7
 - 默认每次工具循环最多调用模型 6 次，包含最终回答；达到上限抛出 `StepLimitError`，已执行工具的副作用不会撤销。
 - Plan 默认最多 5 个步骤，每步独立受 6 次调用限制，总上限为 `1 + 5 × 6 + 1 = 32` 次。计划必须是合法 JSON 字符串数组，规划和汇总不执行工具。
 - Reflection 默认最多评审 2 轮，最多调用模型 5 次。通过评审可提前停止；修订达到上限时返回最后版本，最终版本可能尚未再次评审。评审通过也不保证事实正确。
-- 每个 Agent 的上下文默认保留最近 5 个成功轮次。CLI 自动持久化；Python API 在传入 `SessionStore` 后持久化，相同用户/会话/Agent 类型可恢复。ReAct 保存完整工具消息；Plan/Reflection 保存原始问答，内部步骤通过本轮 `trace` 查看。同一实例用于顺序调用。
+- 每个 Agent 的上下文默认选择最近最多 5 个成功轮次，并受输入预算限制。CLI 自动持久化；Python API 在传入 `SessionStore` 后持久化，相同用户/会话/Agent 类型可恢复。ReAct 保存完整工具消息；Plan/Reflection 保存原始问答，内部步骤通过本轮 `trace` 查看。同一实例用于顺序调用。
 - 模型请求失败或回复被截断会报错，失败轮次不写入会话。工具参数或执行失败转成 `ok: false` 的工具结果，交由模型读取。
 - 计算器只解释白名单 AST 节点，并限制表达式复杂度和数值范围，不使用 `eval`。
 
-这是第七章框架加第八章的基础扩展，提供统一模型接口、四种流程、工具系统、持久记忆和基础 RAG。
+这是第七章框架加第八、九章的基础扩展，提供统一模型接口、四种流程、工具系统、持久记忆、基础 RAG 和上下文预算。
 Embedding 语义检索、自动摘要/记忆提取、知识图谱、多模态和多 Agent 协作暂未加入。
 
 ## 验证
@@ -237,6 +256,7 @@ Embedding 语义检索、自动摘要/记忆提取、知识图谱、多模态和
 python -m unittest discover -s agent_framework/tests -t . -v
 python -m agent_framework.examples.offline_demo
 python -m agent_framework.examples.knowledge_demo
+python -m agent_framework.examples.context_demo
 ```
 
 测试不联网、不读取真实密钥，验证工具校验与失败、完整消息协议、会话截断、步数限制、
@@ -245,4 +265,6 @@ python -m agent_framework.examples.knowledge_demo
 连接中断与用户中断时释放连接、失败轮次不保存，以及非流式兼容。
 扩展测试使用临时数据库，验证重开恢复、用户/会话/模式隔离、记忆维护、上下文长度、
 文档切分与引用、重复导入替换、只读工具和 RAG 调用闭环。
+上下文测试验证完整轮次裁剪、工具协议与引用保留、工具 JSON 预览、四种流程逐次检查输入预算、
+原始记录保留及超限时不调用模型。
 离线演示用于验证代码流程；真实模型的任务完成质量需结合具体模型和问题判断。

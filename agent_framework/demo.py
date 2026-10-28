@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from .mini_agents import (
-    AgentError, Config, DocumentIndex, LLM, MemoryStore, PlanAndSolveAgent, ReActAgent,
-    ReflectionAgent, SessionStore, SimpleAgent, SQLiteStore, create_registry,
+    AgentError, Config, ContextBuilder, ContextConfig, DocumentIndex, LLM, MemoryStore,
+    PlanAndSolveAgent, ReActAgent, ReflectionAgent, SessionStore, SimpleAgent, SQLiteStore, create_registry,
     register_knowledge_tools,
 )
 
@@ -76,7 +76,7 @@ AGENTS = {"simple": SimpleAgent, "react": ReActAgent,
           "reflection": ReflectionAgent, "plan": PlanAndSolveAgent}
 
 
-def run_chat(args, parser, session, memory, documents):
+def run_chat(args, parser, session, memory, documents, context_config):
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
     try:
         config = Config.from_env()
@@ -92,7 +92,8 @@ def run_chat(args, parser, session, memory, documents):
             options["tools"] = register_knowledge_tools(
                 create_registry(search=args.search), memory=memory, documents=documents,
             )
-        agent = AGENTS[args.mode](llm, session=session, memory=memory, **options)
+        agent = AGENTS[args.mode](llm, session=session, memory=memory,
+                                 context=ContextBuilder(context_config), **options)
         agent.system_prompt += (
             "若有本地文档检索工具，查询本地资料时使用它；根据检索证据回答并用 [citation] 标注来源，"
             "没有匹配资料要说明，不能编造来源。持久记忆只能通过 /remember 命令明确写入，"
@@ -147,8 +148,14 @@ def main():
     parser.add_argument("query", nargs="?", help="单次提问或本地命令；省略时进入连续对话")
     parser.add_argument("--mode", choices=("simple", "react", "reflection", "plan"), default="react")
     parser.add_argument("--search", action="store_true", help="启用 Tavily 联网搜索（需额外依赖和 Key）")
-    parser.add_argument("--trace", action="store_true", help="显示阶段、模型回复和工具执行记录")
+    parser.add_argument("--trace", action="store_true", help="显示模型/工具执行记录及上下文统计")
     parser.add_argument("--no-stream", action="store_true", help="关闭默认流式输出")
+    parser.add_argument("--context-chars", type=int, default=24000,
+                        help="每次模型输入预算，含消息结构和工具 Schema，默认 24000 字符")
+    parser.add_argument("--memory-chars", type=int, default=2000,
+                        help="自动发送的记忆正文预算，默认 2000 字符；0 表示不自动发送")
+    parser.add_argument("--tool-result-chars", type=int, default=3000,
+                        help="每条工具结果的发送预算，默认 3000 字符，至少 128")
     parser.add_argument("--db", default=str(Path(__file__).resolve().parent / "data" / "agent.db"),
                         help="SQLite 路径；:memory: 表示本次进程临时存储")
     parser.add_argument("--user", default="local", help="用户标识，隔离会话、记忆和文档")
@@ -162,6 +169,9 @@ def main():
     if args.ingest_only and (not args.ingest or args.query is not None):
         parser.error("--ingest-only 需要 --ingest，且不能同时提问")
     try:
+        context_config = ContextConfig(max_input_chars=args.context_chars,
+                                       max_memory_chars=args.memory_chars,
+                                       max_tool_result_chars=args.tool_result_chars)
         with SQLiteStore(args.db) as db:
             memory = MemoryStore(db, user_id=args.user)
             documents = DocumentIndex(db, namespace=args.user)
@@ -177,7 +187,7 @@ def main():
                 clear_history=lambda: session.clear(AGENTS[args.mode].__name__),
             ):
                 return
-            run_chat(args, parser, session, memory, documents)
+            run_chat(args, parser, session, memory, documents, context_config)
     except (AgentError, OSError, ValueError) as error:
         parser.exit(1, f"运行失败：{error}\n")
 
