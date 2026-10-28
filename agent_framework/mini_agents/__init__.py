@@ -11,7 +11,7 @@ from .core.exceptions import AgentError, ContextLimitError, ModelError, OutputEr
 from .core.llm import ChatModel, LLM
 from .core.message import Message, ToolCall
 from .core.storage import SQLiteStore
-from .memory import MemoryStore, SessionStore
+from .memory import MemoryStore, NoteStore, SessionStore
 from .retrieval import DocumentIndex
 from .tools.base import FunctionTool, Tool
 from .tools.builtin import CalculatorTool, create_registry
@@ -22,7 +22,7 @@ from .tools.registry import ToolRegistry
 __all__ = [
     "Agent", "AgentError", "AsyncToolExecutor", "CalculatorTool", "ChainStep", "ChatModel",
     "Config", "ContextBuilder", "ContextConfig", "ContextLimitError", "DocumentIndex",
-    "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError",
+    "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError", "NoteStore",
     "OutputError", "PlanAndSolveAgent",
     "ReActAgent", "ReflectionAgent", "SimpleAgent", "StepLimitError", "Tool", "ToolCall",
     "SessionStore", "SQLiteStore", "ToolChain", "ToolRegistry", "create_registry",

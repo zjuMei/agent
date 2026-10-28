@@ -36,7 +36,7 @@ python -m agent_framework --user local --session another
 所有成功轮次保存在数据库中，模型每次最多接收最近 5 个完整轮次；实际数量还受 [上下文预算](CONTEXT.md) 限制。
 ReAct 的工具请求、结果和调用 ID 一起保存；Plan/Reflection 仍只保存原始问答。
 失败轮次不落盘，已执行工具的副作用不能回滚。
-交互中的 `/clear` 清除当前用户、会话和模式的全部聊天记录，保留长期记忆与知识库。
+交互中的 `/clear` 清除当前用户、会话和模式的全部聊天记录，保留长期记忆、任务笔记与知识库。
 
 ## 显式长期记忆
 
@@ -75,7 +75,8 @@ python -m agent_framework --ingest ./my_notes --session notes
 文件导入由应用执行；模型只能使用 `search_documents(query)` 检索已经导入的资料。
 默认按段落或换行边界优先切分，每片最多 700 字符，窗口重叠参数为 80 字符。
 长段落会继续切分；结果带 `source`、`chunk_id`、原始行号及 `citation`，例如 `framework.md:L1-L7`。
-每次最多返回 3 个片段、正文共 3000 字符，截断的内容会标记 `truncated`。
+`DocumentIndex.search()` 每次最多返回 3 个片段、正文共 3000 字符，截断的内容会标记 `truncated`。
+模型工具 `search_documents` 再为每个命中提供最多 200 字符预览，必要时用 `read_chunk` 分段读取正文，见 [第九章说明](CONTEXT.md)。
 CLI 提示模型引用这些来源、对证据不足如实说明；引用是否正确仍需结合实际回答检查。
 
 基础检索按英文词和中文相邻双字进行词频余弦匹配，不调用模型，也不需要 Embedding 服务。
@@ -84,7 +85,7 @@ CLI 提示模型引用这些来源、对证据不足如实说明；引用是否�
 导入目录会忽略不支持的文件及指向目录外的文件链接。
 目录导入不会自动清理已从磁盘删除的旧文件，应用可调用 `DocumentIndex.remove(path)`。
 
-CLI 的 ReAct/Plan 默认获得 `calculator`、`search_memory`、`search_documents` 三个工具，`--search` 另加 Tavily 搜索。
+CLI 的 ReAct/Plan 默认获得 `calculator`、`search_memory`、`search_documents`、`read_chunk` 四个工具，`--search` 另加 Tavily 搜索。
 Simple/Reflection 会使用自动加载的记忆，但不执行检索工具；应用可先检索文档，再把资料放入它们的输入。
 会话、记忆和知识库按 `--user` 隔离；这是本地数据分组方式，不是多用户登录认证。
 

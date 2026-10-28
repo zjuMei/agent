@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from .mini_agents import (
-    AgentError, Config, ContextBuilder, ContextConfig, DocumentIndex, LLM, MemoryStore,
+    AgentError, Config, ContextBuilder, ContextConfig, DocumentIndex, LLM, MemoryStore, NoteStore,
     PlanAndSolveAgent, ReActAgent, ReflectionAgent, SessionStore, SimpleAgent, SQLiteStore, create_registry,
     register_knowledge_tools,
 )
@@ -46,13 +46,13 @@ class StreamPrinter:
             print("\n助手：" + answer, flush=True)
 
 
-def local_command(query, *, clear_history, memory):
+def local_command(query, *, clear_history, memory, notes=None):
     """本地命令直接执行，不让模型猜测要保存什么，也不消耗模型调用。"""
     command, _, content = query.partition(" ")
     content = content.strip()
     if command == "/clear":
         clear_history()
-        print("已清空当前用户、会话和模式的聊天记录。长期记忆及文档继续保留。", flush=True)
+        print("已清空当前用户、会话和模式的聊天记录。长期记忆、任务笔记及文档继续保留。", flush=True)
     elif command == "/remember":
         item = memory.add(content)
         print(f"已保存记忆 {item['id']}：{item['content']}", flush=True)
@@ -67,6 +67,16 @@ def local_command(query, *, clear_history, memory):
         memory_id, _, replacement = content.partition(" ")
         changed = memory.update(memory_id, replacement)
         print("已更新记忆。" if changed else "未找到当前用户的这条记忆。", flush=True)
+    elif command in ("/note", "/notes", "/note-clear"):
+        if notes is None:
+            raise ValueError("当前应用没有配置 NoteStore")
+        if command == "/note":
+            notes.save(content)
+            print("已更新当前会话的任务笔记。", flush=True)
+        elif command == "/notes":
+            print(json.dumps(notes.get(), ensure_ascii=False, indent=2), flush=True)
+        else:
+            print("已清除任务笔记。" if notes.clear() else "当前会话没有任务笔记。", flush=True)
     else:
         return False
     return True
@@ -76,7 +86,7 @@ AGENTS = {"simple": SimpleAgent, "react": ReActAgent,
           "reflection": ReflectionAgent, "plan": PlanAndSolveAgent}
 
 
-def run_chat(args, parser, session, memory, documents, context_config):
+def run_chat(args, parser, session, memory, documents, context_config, notes):
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
     try:
         config = Config.from_env()
@@ -92,12 +102,15 @@ def run_chat(args, parser, session, memory, documents, context_config):
             options["tools"] = register_knowledge_tools(
                 create_registry(search=args.search), memory=memory, documents=documents,
             )
-        agent = AGENTS[args.mode](llm, session=session, memory=memory,
+        agent = AGENTS[args.mode](llm, session=session, memory=memory, notes=notes,
                                  context=ContextBuilder(context_config), **options)
         agent.system_prompt += (
             "若有本地文档检索工具，查询本地资料时使用它；根据检索证据回答并用 [citation] 标注来源，"
             "没有匹配资料要说明，不能编造来源。持久记忆只能通过 /remember 命令明确写入，"
             "用户要求记住信息时应提示该命令，不能声称已保存。"
+            "任务进度通过 /note 明确保存，不能声称已自动写笔记。"
+            "若有 read_chunk 工具，文档预览不够时调用它，按实际返回的 next_offset 继续读取；"
+            "它为 null 时已读完。"
         )
 
         def run_turn(query):
@@ -126,14 +139,14 @@ def run_chat(args, parser, session, memory, documents, context_config):
                 raise SystemExit(1)
             return
         print("/clear 清空当前会话；/remember 内容；/memories [关键词]；"
-              "/update 记忆ID 新内容；/forget 记忆ID；/exit 退出。", flush=True)
+              "/update 记忆ID 新内容；/forget 记忆ID；/note 内容；/notes；/note-clear；/exit 退出。", flush=True)
         while True:
             query = input("\n你：").strip()
             if query == "/exit":
                 break
             if query:
                 try:
-                    if not local_command(query, clear_history=agent.clear_history, memory=memory):
+                    if not local_command(query, clear_history=agent.clear_history, memory=memory, notes=notes):
                         run_turn(query)
                 except (AgentError, ValueError) as error:
                     print(f"命令失败：{error}", flush=True)
@@ -176,6 +189,7 @@ def main():
             memory = MemoryStore(db, user_id=args.user)
             documents = DocumentIndex(db, namespace=args.user)
             session = SessionStore(db, user_id=args.user, session_id=args.session)
+            notes = NoteStore(db, user_id=args.user, session_id=args.session)
             for source in args.ingest:
                 path = Path(source).expanduser()
                 results = documents.add_directory(path) if path.is_dir() else [documents.add_file(path)]
@@ -183,11 +197,11 @@ def main():
             if args.ingest_only:
                 return
             if args.query is not None and local_command(
-                args.query.strip(), memory=memory,
+                args.query.strip(), memory=memory, notes=notes,
                 clear_history=lambda: session.clear(AGENTS[args.mode].__name__),
             ):
                 return
-            run_chat(args, parser, session, memory, documents, context_config)
+            run_chat(args, parser, session, memory, documents, context_config, notes)
     except (AgentError, OSError, ValueError) as error:
         parser.exit(1, f"运行失败：{error}\n")
 

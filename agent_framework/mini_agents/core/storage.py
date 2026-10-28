@@ -49,6 +49,13 @@ class SQLiteStore:
                         PRIMARY KEY(namespace, chunk_id)
                     );
                     CREATE INDEX IF NOT EXISTS chunks_source ON chunks(namespace, source);
+                    CREATE TABLE IF NOT EXISTS task_notes (
+                        user_id TEXT NOT NULL,
+                        session_id TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY(user_id, session_id)
+                    );
                 """)
         except sqlite3.Error as error:
             self._connection.close()

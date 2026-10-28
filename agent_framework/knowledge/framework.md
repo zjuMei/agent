@@ -22,3 +22,12 @@ calculator 支持四则运算、整除、取余、乘方，以及 sqrt、pi 和 
 基础知识库支持 UTF-8 编码的 Markdown 和 TXT 文件。
 search_documents 返回相关原文片段、文件路径、行号和引用标识。
 基础检索使用英文词和中文相邻双字匹配，不能理解所有同义表达。
+
+## 任务笔记与分段阅读
+
+/note 内容 会替换当前用户、当前会话的整份任务笔记，最多2000字符，可记录目标、已完成和下一步。
+/notes 查看笔记，/note-clear 清除笔记；/clear 清聊天记录时会保留任务笔记。
+四种 Agent 都可自动将当前任务笔记作为参考上下文，实际发送仍受输入预算限制。
+search_documents 工具只给出每个命中的前200字符预览；需要后续原文时调用 read_chunk。
+read_chunk 使用 chunk_id、offset 和 max_chars，offset 按字符从零计数，按实际返回的 next_offset 继续。
+next_offset 为 null 表示到达当前片段末尾；引用及行号描述原始片段的范围。

@@ -13,7 +13,7 @@ from .message import Message
 
 class Agent(ABC):
     def __init__(self, llm: ChatModel, *, name="助手", system_prompt=None, max_turns=5,
-                 session=None, memory=None, context=None):
+                 session=None, memory=None, context=None, notes=None):
         if max_turns < 1:
             raise ValueError("max_turns 必须大于 0")
         self.llm = llm
@@ -24,6 +24,7 @@ class Agent(ABC):
         )
         self.max_turns = max_turns
         self.session, self.memory = session, memory
+        self.notes = notes
         self.context = context if context is not None else ContextBuilder()
         self._turns: list[list[Message]] = (
             session.load(type(self).__name__, limit=max_turns) if session is not None else []
@@ -33,6 +34,7 @@ class Agent(ABC):
         self._on_event = None
         self._context_turns = []
         self._context_memories = []
+        self._context_note = None
 
     def get_history(self) -> list[Message]:
         return deepcopy([message for turn in self._turns for message in turn])
@@ -57,6 +59,9 @@ class Agent(ABC):
             self._context_memories = self.memory.context(text) if self.memory is not None else []
             if self._context_memories:
                 self.trace.append({"stage": "记忆", "items": self._context_memories})
+            self._context_note = self.notes.get() if self.notes is not None else None
+            if self._context_note is not None:
+                self.trace.append({"stage": "任务笔记", "note": self._context_note})
             messages = [Message("system", self.system_prompt),
                         *(message for turn in self._context_turns for message in turn)]
             start = len(messages)
@@ -72,6 +77,7 @@ class Agent(ABC):
         finally:
             self._stream, self._on_event = True, None
             self._context_turns, self._context_memories = [], []
+            self._context_note = None
 
     def _emit(self, event):
         if self._on_event is not None:
@@ -83,7 +89,7 @@ class Agent(ABC):
         try:
             prepared, context = self.context.build(
                 messages, tools=tools, history_turns=self._context_turns,
-                memory_items=self._context_memories,
+                memory_items=self._context_memories, note=self._context_note,
             )
             self._emit({"type": "model_start", "stage": stage, "context": context})
             reply = self.llm.chat(

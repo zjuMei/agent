@@ -54,8 +54,33 @@ class DocumentIndex:
         for row in rows:
             item = dict(row)
             item["citation"] = f"{Path(item['source']).name}:L{item['start_line']}-L{item['end_line']}"
+            item["total_chars"] = len(item["content"])
             items.append(item)
         return bounded(rank(query, items), limit=limit, max_chars=max_chars)
+
+    def read_chunk(self, chunk_id, *, offset=0, max_chars=1000):
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            raise ValueError("chunk_id 不能为空")
+        if type(offset) is not int or offset < 0:
+            raise ValueError("offset 必须是非负整数")
+        if type(max_chars) is not int or not 1 <= max_chars <= 2000:
+            raise ValueError("max_chars 必须是 1 至 2000 的整数")
+        with self.db.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM chunks WHERE namespace=? AND chunk_id=?", (self.namespace, chunk_id),
+            ).fetchone()
+        if row is None:
+            raise ValueError("未找到当前用户的片段，请重新搜索；文档重导入后旧片段可能失效")
+        item = dict(row)
+        total = len(item["content"])
+        if offset > total:
+            raise ValueError("offset 超过片段长度")
+        end = min(total, offset + max_chars)
+        item.update(content=item["content"][offset:end], total_chars=total, offset=offset,
+                    next_offset=end if end < total else None, truncated=offset > 0 or end < total)
+        # 引用范围属于整个原始片段；页内位置由 offset 表示，不读取磁盘上的其他文件。
+        item["citation"] = f"{Path(item['source']).name}:L{item['start_line']}-L{item['end_line']}"
+        return item
 
     def remove(self, path):
         with self.db.transaction() as connection:

@@ -236,7 +236,7 @@ class LocalTests(unittest.TestCase):
         documents.add_file(self.file("Python 装饰器用于注册工具。"))
         tools = register_knowledge_tools(create_registry(), memory=memory, documents=documents)
         schemas = {item["function"]["name"]: item["function"] for item in tools.schemas()}
-        self.assertEqual(set(schemas), {"calculator", "search_memory", "search_documents"})
+        self.assertEqual(set(schemas), {"calculator", "search_memory", "search_documents", "read_chunk"})
         for name in ("search_memory", "search_documents"):
             self.assertEqual(set(schemas[name]["parameters"]["properties"]), {"query"})
             self.assertFalse(tools.execute(name, {"query": "Python", "user_id": "b"})["ok"])
