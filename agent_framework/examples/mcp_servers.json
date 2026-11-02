@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "courses": {
+      "command": "python",
+      "args": ["-m", "agent_framework.examples.mcp_server"],
+      "cwd": "../..",
+      "timeout": 30,
+      "tools": ["get_course", "add"]
+    }
+  }
+}

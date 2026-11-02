@@ -1,6 +1,7 @@
 """在仓库根目录运行 python -m agent_framework。"""
 
 import argparse
+from contextlib import ExitStack
 import json
 from pathlib import Path
 from time import perf_counter
@@ -9,9 +10,9 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from .mini_agents import (
-    AgentError, Config, ContextBuilder, ContextConfig, DocumentIndex, LLM, MemoryStore, NoteStore,
+    AgentError, Config, ContextBuilder, ContextConfig, DocumentIndex, LLM, MCPClient, MemoryStore, NoteStore,
     PlanAndSolveAgent, ReActAgent, ReflectionAgent, SessionStore, SimpleAgent, SQLiteStore, create_registry,
-    register_knowledge_tools,
+    load_mcp_config, register_knowledge_tools,
 )
 
 
@@ -86,7 +87,7 @@ AGENTS = {"simple": SimpleAgent, "react": ReActAgent,
           "reflection": ReflectionAgent, "plan": PlanAndSolveAgent}
 
 
-def run_chat(args, parser, session, memory, documents, context_config, notes):
+def run_chat(args, parser, session, memory, context_config, notes, tools):
     load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
     try:
         config = Config.from_env()
@@ -98,10 +99,8 @@ def run_chat(args, parser, session, memory, documents, context_config, notes):
     llm = LLM(config)
     try:
         options = {}
-        if args.mode in ("react", "plan"):
-            options["tools"] = register_knowledge_tools(
-                create_registry(search=args.search), memory=memory, documents=documents,
-            )
+        if tools is not None:
+            options["tools"] = tools
         agent = AGENTS[args.mode](llm, session=session, memory=memory, notes=notes,
                                  context=ContextBuilder(context_config), **options)
         agent.system_prompt += (
@@ -161,6 +160,8 @@ def main():
     parser.add_argument("query", nargs="?", help="单次提问或本地命令；省略时进入连续对话")
     parser.add_argument("--mode", choices=("simple", "react", "reflection", "plan"), default="react")
     parser.add_argument("--search", action="store_true", help="启用 Tavily 联网搜索（需额外依赖和 Key）")
+    parser.add_argument("--mcp-config", metavar="PATH", help="加载 stdio MCP 服务配置（可选依赖）")
+    parser.add_argument("--list-tools", action="store_true", help="显示可用工具 Schema 后退出，无需模型密钥")
     parser.add_argument("--trace", action="store_true", help="显示模型/工具执行记录及上下文统计")
     parser.add_argument("--no-stream", action="store_true", help="关闭默认流式输出")
     parser.add_argument("--context-chars", type=int, default=24000,
@@ -177,15 +178,17 @@ def main():
                         help="导入 Markdown/TXT 文件或目录，可重复指定")
     parser.add_argument("--ingest-only", action="store_true", help="只导入文档，不调用模型，无需密钥")
     args = parser.parse_args()
-    if args.search and args.mode not in ("react", "plan"):
+    if (args.search or args.mcp_config or args.list_tools) and args.mode not in ("react", "plan"):
         parser.error("只有 react 和 plan 模式使用工具")
+    if args.list_tools and (args.query is not None or args.ingest_only):
+        parser.error("--list-tools 不能同时提问或使用 --ingest-only")
     if args.ingest_only and (not args.ingest or args.query is not None):
         parser.error("--ingest-only 需要 --ingest，且不能同时提问")
     try:
         context_config = ContextConfig(max_input_chars=args.context_chars,
                                        max_memory_chars=args.memory_chars,
                                        max_tool_result_chars=args.tool_result_chars)
-        with SQLiteStore(args.db) as db:
+        with SQLiteStore(args.db) as db, ExitStack() as resources:
             memory = MemoryStore(db, user_id=args.user)
             documents = DocumentIndex(db, namespace=args.user)
             session = SessionStore(db, user_id=args.user, session_id=args.session)
@@ -201,7 +204,23 @@ def main():
                 clear_history=lambda: session.clear(AGENTS[args.mode].__name__),
             ):
                 return
-            run_chat(args, parser, session, memory, documents, context_config, notes)
+            tools = None
+            if args.mode in ("react", "plan"):
+                tools = register_knowledge_tools(
+                    create_registry(search=args.search), memory=memory, documents=documents,
+                )
+                if args.mcp_config:
+                    for name, settings in load_mcp_config(args.mcp_config).items():
+                        settings = dict(settings)
+                        allowlist = settings.pop("tools", None)
+                        client = resources.enter_context(MCPClient(prefix=name, **settings))
+                        names = client.register_tools(tools, allowlist=allowlist)
+                        if not args.list_tools:
+                            print(f"MCP {name}：已接入 {', '.join(names) or '0 个工具'}。", flush=True)
+            if args.list_tools:
+                print(json.dumps(tools.schemas(), ensure_ascii=False, indent=2), flush=True)
+                return
+            run_chat(args, parser, session, memory, context_config, notes, tools)
     except (AgentError, OSError, ValueError) as error:
         parser.exit(1, f"运行失败：{error}\n")
 

@@ -9,6 +9,7 @@
 第九章第一轮增加统一上下文预算、结构化工具结果预览，以及每次模型调用的输入统计。
 第二轮增加 `/note` 任务笔记和 `read_chunk` 按需分段阅读，继续复用本地 SQLite。
 基础扩展只使用 Python 标准库，不需要额外数据库服务或 Embedding 密钥。
+第十章增加可选的 stdio MCP 客户端，可发现并调用外部服务提供的工具，见 [MCP 扩展](MCP.md)。
 
 ## 先运行
 
@@ -143,6 +144,20 @@ python -m agent_framework --trace --context-chars 6000 --tool-result-chars 1000 
 ReAct/Plan 可以先用 `search_documents` 获取短预览，再用 `read_chunk(chunk_id, offset, max_chars)` 分段读取正文。
 详细规则与示例见 [任务笔记与分段阅读](CONTEXT.md)。
 
+## 第十章：MCP 工具接入
+
+ReAct/Plan 支持通过 stdio 发现和调用 MCP Server 的工具，本地工具可以同时使用。
+
+```bash
+python -m pip install -r agent_framework/requirements-mcp.txt
+python -m agent_framework.examples.mcp_demo
+python -m agent_framework --mcp-config agent_framework/examples/mcp_servers.json \
+  "请调用课程工具，查询 Agent 入门课程的时长"
+```
+
+`mcp_demo` 无需模型密钥，实际启动并调用示例服务；模型回复为预设数据。
+`--list-tools` 可在不调用模型的情况下检查工具定义。配置、Python 接口及限制见 [MCP 扩展说明](MCP.md)。
+
 ## 目录与阅读顺序
 
 ```text
@@ -172,10 +187,14 @@ agent_framework/
 │       ├── registry.py       # 注册、Schema、统一执行入口
 │       ├── builtin.py        # AST 计算器、可选 Tavily 搜索
 │       ├── knowledge.py      # 长期记忆与文档检索工具
+│       ├── mcp.py            # 可选 stdio MCP 客户端与远程工具适配
 │       └── chain.py          # ToolChain / AsyncToolExecutor
 ├── examples/offline_demo.py  # 可替换的预设模型，展示四种流程
 ├── examples/knowledge_demo.py # 离线验证记忆、检索和恢复
 ├── examples/context_demo.py # 离线观察上下文裁剪和原文保留
+├── examples/mcp_demo.py      # 预设模型与真实 MCP 服务调用
+├── examples/mcp_server.py    # 用于学习的示例 stdio 服务
+├── requirements-mcp.txt      # MCP 可选依赖
 ├── knowledge/framework.md    # 可导入的示例资料
 ├── data/                    # 运行时数据库，Git 忽略
 └── tests/                   # 离线测试，包括 SDK 的模拟 HTTP 和 SSE 测试

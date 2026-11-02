@@ -17,14 +17,15 @@ from .tools.base import FunctionTool, Tool
 from .tools.builtin import CalculatorTool, create_registry
 from .tools.chain import AsyncToolExecutor, ChainStep, ToolChain
 from .tools.knowledge import register_knowledge_tools
+from .tools.mcp import MCPClient, load_mcp_config
 from .tools.registry import ToolRegistry
 
 __all__ = [
     "Agent", "AgentError", "AsyncToolExecutor", "CalculatorTool", "ChainStep", "ChatModel",
     "Config", "ContextBuilder", "ContextConfig", "ContextLimitError", "DocumentIndex",
-    "FunctionTool", "LLM", "MemoryStore", "Message", "ModelError", "NoteStore",
+    "FunctionTool", "LLM", "MCPClient", "MemoryStore", "Message", "ModelError", "NoteStore",
     "OutputError", "PlanAndSolveAgent",
     "ReActAgent", "ReflectionAgent", "SimpleAgent", "StepLimitError", "Tool", "ToolCall",
     "SessionStore", "SQLiteStore", "ToolChain", "ToolRegistry", "create_registry",
-    "register_knowledge_tools",
+    "load_mcp_config", "register_knowledge_tools",
 ]

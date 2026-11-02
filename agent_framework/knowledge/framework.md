@@ -31,3 +31,11 @@ search_documents 返回相关原文片段、文件路径、行号和引用标识
 search_documents 工具只给出每个命中的前200字符预览；需要后续原文时调用 read_chunk。
 read_chunk 使用 chunk_id、offset 和 max_chars，offset 按字符从零计数，按实际返回的 next_offset 继续。
 next_offset 为 null 表示到达当前片段末尾；引用及行号描述原始片段的范围。
+
+## MCP 工具接入
+
+安装 requirements-mcp.txt 后，ReAct/Plan 可以通过 stdio 连接 MCP Server 并调用其工具。
+CLI 使用 --mcp-config 配置文件；--list-tools 只查看工具定义，不调用模型。
+服务 courses 的 get_course 注册为 courses__get_course，与本地工具共用 ToolRegistry。
+参数依据服务端 JSON Schema 校验，调用错误和超时如实返回，不自动重试。
+连接在整个对话期间复用，退出时关闭服务子进程。当前不支持远程 HTTP/SSE、A2A 或 ANP。

@@ -1,0 +1,4 @@
+-r requirements.txt
+# 保持 Python 3.10 兼容；此扩展使用官方 SDK 1.x 的 ClientSession 接口。
+mcp>=1.28,<2
+jsonschema>=4.20,<5
