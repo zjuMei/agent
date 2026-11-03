@@ -3,3 +3,4 @@
 __pycache__/
 preferences.json
 agent_framework/data/
+local_research/workspace/

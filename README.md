@@ -8,9 +8,11 @@
 | [native](native/README.md) | 普通函数、循环和条件判断 | 当前原生实现，便于理解 Agent 的基本机制 |
 | [langgraph_app](langgraph_app/README.md) | StateGraph 节点、条件边和子图 | 同一组功能，学习用 LangGraph 组织流程 |
 | [agent_framework](agent_framework/README.md) | 自建模型、消息、工具与 Agent 接口 | 第七章框架，第八章记忆/RAG，第九章上下文管理，第十章可选 MCP 工具接入 |
+| [local_research](local_research/README.md) | 复用自建框架的本地资料研究应用 | 规划子问题、检索并阅读 Markdown/TXT、生成带引用的报告 |
 
 第七章自建框架的安装、运行和扩展方法见 [agent_framework/README.md](agent_framework/README.md)。
 快速体验：`python -m agent_framework.examples.offline_demo`；真实模型运行：`python -m agent_framework --mode react`。
+研究应用可运行 `python -m local_research.demo`（无需密钥），或 `python -m local_research "比较三种 Agent 流程"` 使用现有模型配置。
 以下说明针对原生版与 LangGraph 版旅行助手。
 
 ## 安装与配置
